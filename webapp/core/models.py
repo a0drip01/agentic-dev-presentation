@@ -36,3 +36,13 @@ class Room(models.Model):
             elapsed = (timezone.now() - self.timer_started_at).total_seconds()
             return elapsed >= self.timer_seconds
         return False
+
+    def notify_observers(self, event_type='expired'):
+        doctors = self.users.filter(role='doctor')
+        nurses = self.users.filter(role='nurse')
+        doctor_names = ', '.join([d.username for d in doctors]) or 'none'
+        nurse_names = ', '.join([n.username for n in nurses]) or 'none'
+        if event_type == 'expired':
+            print(f"[NOTIFY] {timezone.now()} - room {self.name} timer EXPIRED, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")
+        else:
+            print(f"[NOTIFY] {timezone.now()} - room {self.name} timer expired, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")

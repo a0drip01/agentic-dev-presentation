@@ -20,19 +20,11 @@ class Command(BaseCommand):
                             last = notified.get(room.id, -1)
                             # Notify immediately when timer expires
                             if last == -1:
-                                doctors = room.users.filter(role='doctor')
-                                nurses = room.users.filter(role='nurse')
-                                doctor_names = ', '.join([d.username for d in doctors]) or 'none'
-                                nurse_names = ', '.join([n.username for n in nurses]) or 'none'
-                                print(f"[NOTIFY] {timezone.now()} - room {room.name} timer EXPIRED, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")
+                                room.notify_observers(event_type='expired')
                                 notified[room.id] = 0
                             # Notify every 30 seconds after expiration
                             elif intervals > last:
-                                doctors = room.users.filter(role='doctor')
-                                nurses = room.users.filter(role='nurse')
-                                doctor_names = ', '.join([d.username for d in doctors]) or 'none'
-                                nurse_names = ', '.join([n.username for n in nurses]) or 'none'
-                                print(f"[NOTIFY] {timezone.now()} - room {room.name} timer expired, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")
+                                room.notify_observers(event_type='interval')
                                 notified[room.id] = intervals
                         else:
                             notified[room.id] = -1  # Reset notification if timer is reset
