@@ -1,0 +1,227 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Room Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+        }
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+        .room {
+            position: relative;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            width: 350px;
+            min-height: 260px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .timer-bg {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            z-index: 0;
+            opacity: 0.18;
+            transition: background 0.5s;
+        }
+        .room-content {
+            position: relative;
+            z-index: 1;
+        }
+        .section {
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 0.3rem;
+        }
+        .user-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .user {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 0.3rem 0.8rem;
+            font-size: 0.98rem;
+        }
+        .timer-label {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+        .timer-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .timer-form input {
+            padding: 0.3rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+        .timer-form button {
+            padding: 0.3rem 0.8rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .timer-form button:hover {
+            background: #0056b3;
+        }
+        .flash {
+            animation: flash-red 1s infinite alternate;
+        }
+        @keyframes flash-red {
+            from { opacity: 0.18; }
+            to { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align:center;">Room Dashboard</h1>
+    <div class="grid">
+        {% for item in room_data %}
+        <div class="room">
+            {% if item.timer %}
+                <div class="timer-bg" style="background: {{ item.timer.color }}; width: {{ item.timer.percent }}%; height: 100%;" data-elapsed="{{ item.timer.elapsed }}" data-total="{{ item.timer.total }}"></div>
+            {% endif %}
+            <div class="room-content">
+                <div class="section">
+                    <div class="section-title">Room</div>
+                    <div class="user-list"><span class="user" style="background:#b3e5fc;">{{ item.room.name }}</span></div>
+                </div>
+                <div class="section">
+                    <div class="section-title">Set Timer</div>
+                    <form class="timer-form" data-room-id="{{ item.room.id }}" onsubmit="return setTimer(event, {{ item.room.id }})">
+                        <input type="number" name="seconds" min="0" placeholder="Seconds (0 to stop)" required style="width:120px;">
+                        <button type="submit">Start/Reset</button>
+                    </form>
+                </div>
+                <div class="section">
+                    <div class="section-title">Patients</div>
+                    <div class="user-list">
+                        {% for p in item.patients %}
+                            <span class="user">{{ p.username }}</span>
+                        {% empty %}
+                            <span class="user" style="background:#ffcdd2;">None</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">Doctors</div>
+                    <div class="user-list">
+                        {% for d in item.doctors %}
+                            <span class="user" style="background:#c8e6c9;">{{ d.username }}</span>
+                        {% empty %}
+                            <span class="user" style="background:#ffcdd2;">None</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="section-title">Nurses</div>
+                    <div class="user-list">
+                        {% for n in item.nurses %}
+                            <span class="user" style="background:#fff9c4;">{{ n.username }}</span>
+                        {% empty %}
+                            <span class="user" style="background:#ffcdd2;">None</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if item.timer %}
+                    <div class="timer-label">
+                        Timer: {{ item.timer.elapsed }} / {{ item.timer.total }} seconds ({{ item.timer.percent }}%)
+                    </div>
+                {% else %}
+                    <div class="timer-label" style="color:#888;">No active timer</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+    function setTimer(event, roomId) {
+        event.preventDefault();
+        const form = event.target;
+        const seconds = form.seconds.value;
+        fetch(`/set-timer/${roomId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({seconds: seconds})
+        })
+        .then(res => res.json())
+        .then(data => { if(data.status === 'ok') window.location.reload(); })
+        .catch(err => alert('Failed to set timer: ' + err));
+        return false;
+    }
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Live timer update logic
+    function updateTimers() {
+        document.querySelectorAll('.room').forEach(function(roomEl) {
+            const timerBg = roomEl.querySelector('.timer-bg');
+            const timerLabel = roomEl.querySelector('.timer-label');
+            if (!timerBg || !timerLabel) return;
+            const elapsed = parseInt(timerBg.getAttribute('data-elapsed'));
+            const total = parseInt(timerBg.getAttribute('data-total'));
+            if (!total) return;
+            let start = Date.now() - (elapsed * 1000);
+            function tick() {
+                let now = Date.now();
+                let elapsedNow = Math.floor((now - start) / 1000);
+                let percent = Math.min(100, Math.floor((elapsedNow / total) * 100));
+                let color = '#4caf50';
+                if (percent < 50) color = '#4caf50';
+                else if (percent < 85) color = '#ff9800';
+                else color = '#f44336';
+                timerBg.style.background = color;
+                timerBg.style.width = percent + '%';
+                timerLabel.textContent = `Timer: ${elapsedNow} / ${total} seconds (${percent}%)`;
+                if (percent < 100) {
+                    requestAnimationFrame(tick);
+                } else {
+                    timerLabel.textContent = 'Timer expired!';
+                    timerBg.style.background = '#f44336';
+                    timerBg.classList.add('flash');
+                }
+            }
+            tick();
+        });
+    }
+    document.addEventListener('DOMContentLoaded', updateTimers);
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+username,email,role,room
+alice,alice@example.com,doctor,Room 1
+bob,bob@example.com,nurse,Room 1
+carol,carol@example.com,patient,Room 1
+dave,dave@example.com,doctor,Room 2
+erin,erin@example.com,nurse,Room 2
+frank,frank@example.com,patient,Room 2
