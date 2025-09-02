@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+import uuid
 
 # Create your models here.
 
@@ -38,11 +39,33 @@ class Room(models.Model):
         return False
 
     def notify_observers(self, event_type='expired'):
+        from .notification_bus import NotificationBus
         doctors = self.users.filter(role='doctor')
         nurses = self.users.filter(role='nurse')
         doctor_names = ', '.join([d.username for d in doctors]) or 'none'
         nurse_names = ', '.join([n.username for n in nurses]) or 'none'
         if event_type == 'expired':
-            print(f"[NOTIFY] {timezone.now()} - room {self.name} timer EXPIRED, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")
+            message = f"Room {self.name} timer EXPIRED. Notify doctor(s): {doctor_names} and nurse(s): {nurse_names}"
         else:
-            print(f"[NOTIFY] {timezone.now()} - room {self.name} timer expired, notify doctor(s) {doctor_names} and nurse(s) {nurse_names}")
+            message = f"Room {self.name} timer expired. Notify doctor(s): {doctor_names} and nurse(s): {nurse_names}"
+        NotificationBus.publish(self, message)
+
+class Notification(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification {self.id} for Room {self.room.name} at {self.timestamp}"
+
+class NotificationRead(models.Model):
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='reads')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notification_reads')
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('notification', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} read {self.notification.id} at {self.read_at}"
