@@ -38,17 +38,28 @@ class Room(models.Model):
             return elapsed >= self.timer_seconds
         return False
 
-    def notify_observers(self, event_type='expired'):
+    def notify_observers(self, event_type='expired', reason=None):
         from .notification_bus import NotificationBus
         doctors = self.users.filter(role='doctor')
         nurses = self.users.filter(role='nurse')
+        patients = self.users.filter(role='patient')
         doctor_names = ', '.join([d.username for d in doctors]) or 'none'
         nurse_names = ', '.join([n.username for n in nurses]) or 'none'
-        if event_type == 'expired':
-            message = f"Room {self.name} timer EXPIRED. Notify doctor(s): {doctor_names} and nurse(s): {nurse_names}"
-        else:
-            message = f"Room {self.name} timer expired. Notify doctor(s): {doctor_names} and nurse(s): {nurse_names}"
-        NotificationBus.publish(self, message)
+        patient_names = ', '.join([p.username for p in patients]) or 'none'
+        if not reason:
+            if event_type == 'expired':
+                reason = 'Timer expired'
+            else:
+                reason = 'Timer interval notification'
+        message = (
+            f"Room: {self.name}\n"
+            f"Doctor(s): {doctor_names}\n"
+            f"Nurse(s): {nurse_names}\n"
+            f"Patient(s): {patient_names}\n"
+            f"Reason: {reason}"
+        )
+        notification = NotificationBus.publish(self, message)
+        return notification
 
 class Notification(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -69,3 +80,11 @@ class NotificationRead(models.Model):
 
     def __str__(self):
         return f"{self.user.username} read {self.notification.id} at {self.read_at}"
+
+class WebhookSubscription(models.Model):
+    url = models.URLField()
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='webhook_subscriptions')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Webhook {self.url} for Room {self.room.name}"
