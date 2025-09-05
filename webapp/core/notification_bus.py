@@ -1,5 +1,5 @@
 from django.utils import timezone
-from .models import Notification, NotificationRead, Room, User, WebhookSubscription
+from .models import Notification, NotificationRead, Room, User
 from collections import defaultdict
 import requests
 
@@ -50,11 +50,3 @@ class NotificationBus:
     def get_unread_for_user(user: User):
         rooms = Room.objects.filter(users=user)
         return Notification.objects.filter(room__in=rooms).exclude(reads__user=user)
-
-class WebhookSubscription(models.Model):
-    url = models.URLField()
-    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='webhook_subscriptions')
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Webhook {self.url} for Room {self.room.name}"

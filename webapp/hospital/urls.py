@@ -16,8 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from core.views_webhook import webhook_subscribe
+from core.views_notifications import notifications_for_room
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('dashboard.urls')),
+    path('api/webhook_subscribe/', webhook_subscribe, name='webhook_subscribe'),
+    path('api/notifications/', notifications_for_room, name='notifications_for_room'),
 ]
