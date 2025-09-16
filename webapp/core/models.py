@@ -177,6 +177,7 @@ class ConsumerNotificationPending(models.Model):
     """
     consumer = models.ForeignKey(Consumer, on_delete=models.CASCADE, related_name='pending_notifications')
     notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='pending_for_consumers')
+    matched_tags = models.JSONField(default=dict, help_text="Which tags caused the match")
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
