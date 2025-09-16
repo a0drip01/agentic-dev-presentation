@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-c#b^&fdl$^ipr49cz-m4lr!8%vhfmp3voatg*4#@p098-%(v*4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -37,11 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',  # Enable CORS for mobile apps
     'core',
     'dashboard',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Must be at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -124,3 +126,43 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS configuration for mobile apps and external services
+# Allow all origins during development - restrict in production
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Alternative: Specify allowed origins in production
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",  # React Native development
+#     "http://127.0.0.1:3000",
+#     "https://yourmobileapp.com",
+# ]
+
+# Allow credentials for authenticated requests
+CORS_ALLOW_CREDENTIALS = True
+
+# Headers that can be used during the actual request
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# HTTP methods allowed for CORS requests
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Allow specific API endpoints to bypass CSRF protection for mobile apps
+CORS_URLS_REGEX = r'^/api/.*$'
