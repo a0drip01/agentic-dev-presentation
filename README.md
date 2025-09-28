@@ -1,24 +1,47 @@
-# Django Room Timer Web App with Kafka-like Notification Bus
+# Django Room Timer Web App with Kafka-like Notification Bus & Observer Pattern
 
 ## Overview
-A comprehensive Django web application that combines room timer management with a sophisticated Kafka-inspired notification bus system. The app manages users (doctors, nurses, patients), assigns them to rooms, tracks timers, and provides a scalable notification system for mobile apps, external services, and other consumers.
+A comprehensive Django web application that combines room timer management with a sophisticated notification system implementing both **Observer Pattern** (push notifications) and **Kafka-inspired Consumer API** (polling). The app manages users (doctors, nurses, patients), assigns them to rooms, tracks timers, and provides dual notification delivery methods for mobile apps, external services, and other consumers.
 
 ## 🏗️ System Architecture
 
 ### Core Components
 1. **Room Timer System**: Original functionality for managing room timers and user assignments
-2. **Notification Bus**: Kafka-like pub/sub system with tag-based routing
-3. **Consumer API**: REST endpoints for consumer registration, polling, and acknowledgments
-4. **Database Management**: Automated cleanup and performance optimization tools
+2. **Observer Pattern**: Database-persisted push notifications with webhook delivery
+3. **Notification Bus**: Kafka-like pub/sub system with tag-based routing
+4. **Consumer API**: REST endpoints for consumer registration, polling, and acknowledgments
+5. **Real-time Dashboard**: Live monitoring of observers and consumers
+6. **Database Management**: Automated cleanup and performance optimization tools
 
-### Notification Bus Features
+### Dual Notification System
+#### 🔔 Observer Pattern (Push Notifications)
+- **Database-Persisted Observers**: Survives server restarts, works across multiple instances
+- **Webhook Delivery**: Real-time HTTP POST notifications to registered URLs
+- **Automatic Retry Logic**: Configurable retry attempts with failure tracking
+- **Health Monitoring**: Success/failure statistics and automatic observer deactivation
+- **Mobile App Ready**: Designed for iPhone apps and external push services
+
+#### 📱 Consumer API (Pull Notifications) 
 - **Tag-based Subscriptions**: Consumers subscribe to notifications by tag types (room, provider, department, etc.)
 - **Acknowledgment System**: Kafka-style acknowledgments prevent duplicate delivery
 - **Batch Operations**: Efficient handling of multiple notifications
 - **Performance Optimized**: Database indexes and batch processing for scalability
-- **Management Tools**: Automated cleanup and monitoring commands
 
 ## 🚀 Quick Start
+
+### **Demo Setup (Fastest for Live Presentations)**
+```sh
+cd /Users/alexdripchak/Projects/agentic-dev-presentation/webapp
+source .venv/bin/activate
+make demo  # Sets up demo data and starts server
+```
+
+**Then open these dashboards:**
+- **Observer Dashboard**: http://localhost:8000/dashboard/observers/
+- **Room Dashboard**: http://localhost:8000/dashboard/
+- **Admin Panel**: http://localhost:8000/admin/ (admin/demo123)
+
+### **Full Development Setup**
 
 1. **Clone the repository and enter the project directory:**
    ```sh
@@ -38,9 +61,9 @@ A comprehensive Django web application that combines room timer management with 
    python manage.py migrate
    ```
 
-4. **(Optional) Load sample data:**
+4. **Set up demo data (optional but recommended):**
    ```sh
-   python manage.py import_users_rooms sample_users_rooms.csv
+   python manage.py setup_demo --clean
    ```
 
 5. **Create a superuser for admin access:**
@@ -52,14 +75,80 @@ A comprehensive Django web application that combines room timer management with 
    ```sh
    make runserver
    # or
-   python manage.py runserver
+   python manage.py runserver 8000
    ```
 
 7. **Access the app:**
-   - Dashboard: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-   - Admin: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
+   - **Observer Dashboard**: [http://127.0.0.1:8000/dashboard/observers/](http://127.0.0.1:8000/dashboard/observers/) (Real-time monitoring)
+   - **Room Dashboard**: [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/) (Timer controls)
+   - **Admin Panel**: [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
 
-## 📡 Notification Bus API Guide
+## � Observer Pattern API (Push Notifications)
+
+The Observer Pattern provides real-time webhook-based notifications, perfect for mobile apps and external services that need immediate updates.
+
+### Register an Observer (iPhone App Example)
+```bash
+curl -X POST http://localhost:8000/api/observers/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "iPhone App - Dr. Smith",
+    "observer_type": "mobile_app",
+    "room_name": "DEMO-ICU-1",
+    "callback_url": "https://your-push-server.com/notify",
+    "callback_headers": {
+      "Authorization": "Bearer your-device-token",
+      "X-Device-ID": "iPhone123"
+    },
+    "timeout_seconds": 10,
+    "retry_count": 3,
+    "metadata": {
+      "device_id": "iPhone123",
+      "user_id": "dr_smith",
+      "app_version": "1.0.0"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "observer_id": "uuid-here",
+  "name": "iPhone App - Dr. Smith",
+  "observer_type": "mobile_app",
+  "room": "DEMO-ICU-1",
+  "callback_url": "https://your-push-server.com/notify",
+  "status": "active",
+  "created_at": "2025-09-28T19:00:00Z"
+}
+```
+
+### Observer Management Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/observers/register/` | Register new observer |
+| DELETE | `/api/observers/{id}/` | Unregister observer |
+| GET | `/api/observers/{id}/status/` | Get observer status & statistics |
+| PUT | `/api/observers/{id}/update/` | Update observer configuration |
+| GET | `/api/rooms/{room_name}/observers/` | List all observers for a room |
+
+### Notification Payload (Webhook POST)
+When a notification occurs, observers receive an HTTP POST with:
+```json
+{
+  "observer_id": "uuid-here",
+  "notification_id": "notification-uuid",
+  "room": "DEMO-ICU-1",
+  "message": "Room: DEMO-ICU-1\nDoctor(s): Dr. Smith\nReason: Timer expired",
+  "timestamp": "2025-09-28T19:05:00Z",
+  "room_id": 1
+}
+```
+
+## 📱 Consumer API (Pull Notifications)
+
+The Consumer API provides Kafka-style polling for applications that prefer to pull notifications on their own schedule.
 
 ### Consumer Lifecycle
 
@@ -138,7 +227,7 @@ curl -X POST http://localhost:8000/api/consumers/{consumer_id}/notifications/ack
 }
 ```
 
-### Complete API Endpoints
+### Complete Consumer API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -150,6 +239,53 @@ curl -X POST http://localhost:8000/api/consumers/{consumer_id}/notifications/ack
 | GET | `/api/consumers/{id}/notifications/` | Poll for notifications |
 | POST | `/api/consumers/{id}/notifications/ack/` | Acknowledge notifications |
 | GET | `/api/consumers/{id}/status/` | Get consumer status |
+
+## 🖥️ Real-Time Dashboard
+
+The system includes a comprehensive dashboard for monitoring both observer and consumer activity:
+
+### Observer Dashboard Features
+- **Real-time Updates**: Refreshes every 10 seconds
+- **Registration Notifications**: Pop-up alerts when new observers register
+- **Health Monitoring**: Shows success/failure statistics for each observer  
+- **Room Statistics**: Observer counts by room
+- **Live Status**: Active, failed, and inactive observer counts
+
+### Access Dashboards
+- **Observer Monitoring**: http://localhost:8000/dashboard/observers/
+- **Room Control**: http://localhost:8000/dashboard/ (set timers, trigger notifications)
+- **Admin Interface**: http://localhost:8000/admin/ (full system management)
+
+## ⚡ Quick Commands
+
+### Demo and Testing
+```bash
+# Complete demo setup (one command)
+make demo
+
+# Setup demo data only  
+make setup-demo
+
+# Test notification delivery
+make test-notification
+
+# Manual notification trigger
+python manage.py shell -c "from core.models import Room; Room.objects.get(name='DEMO-ICU-1').notify_observers()"
+```
+
+### Observer Pattern Testing
+```bash
+# Register test observer
+curl -X POST http://localhost:8000/api/observers/register/ \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Test Observer","observer_type":"mobile_app","room_name":"DEMO-ICU-1","callback_url":"https://httpbin.org/post"}'
+
+# Check observer status  
+curl http://localhost:8000/api/rooms/DEMO-ICU-1/observers/
+
+# Trigger notification and watch webhook delivery
+make test-notification
+```
 
 ### Subscription Tag Types
 
@@ -279,7 +415,44 @@ gunicorn hospital.wsgi:application
 
 ## 🔄 Integration Examples
 
-### Mobile App Integration
+### iPhone App Integration (Observer Pattern)
+```javascript
+// Register iPhone app as observer for push notifications
+const response = await fetch('/api/observers/register/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    name: 'iPhone App - Dr. Smith',
+    observer_type: 'mobile_app',
+    room_name: 'DEMO-ICU-1',
+    callback_url: 'https://your-push-server.com/notify',
+    callback_headers: {
+      'Authorization': 'Bearer ' + deviceToken,
+      'X-Device-ID': deviceId
+    },
+    metadata: {
+      device_id: deviceId,
+      user_id: userId,
+      app_version: '1.0.0'
+    }
+  })
+});
+
+const observer = await response.json();
+// Store observer.observer_id for management
+
+// Your push server receives notifications like:
+// POST https://your-push-server.com/notify
+// {
+//   "observer_id": "uuid",
+//   "notification_id": "notification-uuid", 
+//   "room": "DEMO-ICU-1",
+//   "message": "Timer expired...",
+//   "timestamp": "2025-09-28T19:05:00Z"
+// }
+```
+
+### Mobile App Integration (Consumer Pattern)
 ```javascript
 // Register consumer
 const response = await fetch('/api/consumers/register/', {
@@ -460,9 +633,15 @@ python manage.py migrate
 ---
 
 **System Status**: ✅ Production Ready  
+**Observer Pattern**: ✅ Database-persisted with webhook delivery  
+**Consumer API**: ✅ Kafka-style polling with acknowledgments  
+**Real-time Dashboard**: ✅ Live monitoring with notifications  
 **Test Coverage**: 23/23 tests passing  
-**API Endpoints**: 8 endpoints fully implemented  
+**API Endpoints**: 13 endpoints fully implemented (8 Consumer + 5 Observer)  
 **Database**: Optimized with performance indexes  
 
-For more details, see the comprehensive planning documentation in the `planning/` directory.
+For more details, see:
+- **Live Demo Setup**: `DEMO_DAY_SETUP.md` (30-second setup)
+- **Detailed Demo Guide**: `DEMO_QUICK_START.md` (step-by-step)  
+- **Planning Documentation**: `planning/master-implementation-plan.md`
 
