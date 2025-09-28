@@ -33,4 +33,7 @@ urlpatterns = [
     # Test notification endpoints
     path('api/rooms/<str:room_name>/test-notification/', views_test.create_test_notification, name='create_test_notification'),
     path('api/rooms/<str:room_name>/timer-notification/', views_test.trigger_timer_notification, name='trigger_timer_notification'),
+    
+    # Notification status checking
+    path('api/notifications/<uuid:notification_id>/status/', views.check_notification_status, name='check_notification_status'),
 ]

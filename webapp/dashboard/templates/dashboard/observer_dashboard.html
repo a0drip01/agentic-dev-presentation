@@ -8,8 +8,40 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-color: #f5f5f5;
+        }
+        .nav {
+            background: #2c3e50;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav h1 {
+            color: white;
+            margin: 0;
+            display: inline-block;
+        }
+        .nav-links {
+            float: right;
+            margin-top: 5px;
+        }
+        .nav-links a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin-left: 2rem;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .nav-links a.active {
+            background: #3498db;
+            color: white;
+        }
+        .container {
+            padding: 20px;
         }
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -147,11 +179,22 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🏥 Hospital Notification System Dashboard</h1>
-        <p>Real-time Observer & Consumer Monitoring</p>
-        <span id="lastUpdate" class="refresh-indicator">Last updated: Loading...</span>
-    </div>
+    <nav class="nav">
+        <h1>🏥 Hospital Dashboard</h1>
+        <div class="nav-links">
+            <a href="{% url 'room_grid' %}">Rooms</a>
+            <a href="{% url 'observer_dashboard' %}" class="active">Observers</a>
+            <a href="{% url 'notifications_dashboard' %}">Notifications</a>
+        </div>
+        <div style="clear: both;"></div>
+    </nav>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Hospital Notification System Dashboard</h1>
+            <p>Real-time Observer & Consumer Monitoring</p>
+            <span id="lastUpdate" class="refresh-indicator">Last updated: Loading...</span>
+        </div>
 
     <div class="stats-grid">
         <div class="stat-card">
@@ -325,5 +368,6 @@
             showNotification('🚀 Dashboard loaded! Updates every 10 seconds', 'info');
         }, 1000);
     </script>
+    </div> <!-- Close container div -->
 </body>
 </html>

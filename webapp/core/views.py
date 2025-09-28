@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
+from django.utils import timezone
 from .models import Consumer, ConsumerSubscription, Notification, ConsumerNotificationAck, ConsumerNotificationPending
 import json
 import uuid
@@ -600,6 +601,87 @@ def consumer_status(request, consumer_id):
     except Http404:
         return JsonResponse({
             'error': 'Consumer not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Internal server error: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def check_notification_status(request, notification_id):
+    """
+    GET /api/notifications/{id}/status/
+    Check the acknowledgment status of a specific notification.
+    
+    Returns detailed information about which consumers have acknowledged 
+    the notification and which are still pending.
+    """
+    try:
+        # Get the notification
+        notification = get_object_or_404(Notification, id=notification_id)
+        
+        # Get acknowledgments
+        acks = ConsumerNotificationAck.objects.filter(notification=notification).select_related('consumer')
+        
+        # Get pending consumers
+        pending = ConsumerNotificationPending.objects.filter(notification=notification).select_related('consumer')
+        
+        # Get total active consumers that could potentially receive this notification
+        total_consumers = Consumer.objects.filter(status='active').count()
+        
+        # Calculate status
+        ack_count = acks.count()
+        pending_count = pending.count()
+        is_fully_acknowledged = ack_count > 0 and pending_count == 0
+        
+        # Check if expired (older than 1 hour and still pending)
+        is_expired = (
+            timezone.now() - notification.timestamp > timezone.timedelta(hours=1) and 
+            pending_count > 0
+        )
+        
+        # Build response
+        response_data = {
+            'notification': {
+                'id': str(notification.id),
+                'message': notification.message,
+                'room': notification.room.name,
+                'created_at': notification.timestamp.isoformat(),
+            },
+            'status': {
+                'total_consumers': total_consumers,
+                'acknowledged_count': ack_count,
+                'pending_count': pending_count,
+                'is_fully_acknowledged': is_fully_acknowledged,
+                'is_expired': is_expired,
+                'completion_percentage': round((ack_count / max(total_consumers, 1)) * 100, 1)
+            },
+            'acknowledgments': [
+                {
+                    'consumer_id': str(ack.consumer.id),
+                    'consumer_name': ack.consumer.name,
+                    'consumer_type': ack.consumer.consumer_type,
+                    'acknowledged_at': ack.acknowledged_at.isoformat()
+                } for ack in acks.order_by('-acknowledged_at')
+            ],
+            'pending_consumers': [
+                {
+                    'consumer_id': str(p.consumer.id),
+                    'consumer_name': p.consumer.name,
+                    'consumer_type': p.consumer.consumer_type,
+                    'pending_since': p.created_at.isoformat(),
+                    'matched_tags': p.matched_tags
+                } for p in pending.order_by('created_at')
+            ]
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Http404:
+        return JsonResponse({
+            'error': 'Notification not found'
         }, status=404)
     except Exception as e:
         return JsonResponse({
