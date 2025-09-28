@@ -413,44 +413,318 @@ gunicorn hospital.wsgi:application
 0 4 * * 0 /path/to/venv/bin/python /path/to/manage.py db_maintenance --stats --check-performance
 ```
 
-## 🔄 Integration Examples
+## � iPhone App Integration Guide (Observer Pattern)
 
-### iPhone App Integration (Observer Pattern)
+### Why Observer Pattern for iPhone Apps?
+
+**✅ Recommended Approach**: Observer pattern is the ideal choice for iPhone apps because:
+- **Real-time Push Notifications**: Immediate delivery via webhooks to APNs
+- **Battery Efficient**: No constant polling required 
+- **Background Processing**: Notifications arrive even when app is closed
+- **iOS Native Integration**: Works perfectly with Apple Push Notification service
+
+### Integration Architecture
+
+```
+[Room Timer Event] → [Django Observer Pattern] → [Your Push Server] → [Apple APNs] → [iPhone App]
+```
+
+### Step-by-Step iPhone Integration
+
+#### 1. **Set Up Your Push Notification Server**
+
+First, you'll need a server to receive webhooks from Django and forward them to Apple APNs:
+
 ```javascript
-// Register iPhone app as observer for push notifications
-const response = await fetch('/api/observers/register/', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'iPhone App - Dr. Smith',
-    observer_type: 'mobile_app',
-    room_name: 'DEMO-ICU-1',
-    callback_url: 'https://your-push-server.com/notify',
-    callback_headers: {
-      'Authorization': 'Bearer ' + deviceToken,
-      'X-Device-ID': deviceId
-    },
-    metadata: {
-      device_id: deviceId,
-      user_id: userId,
-      app_version: '1.0.0'
-    }
-  })
+// Express.js example push server
+const express = require('express');
+const apn = require('apn');
+const app = express();
+
+// Configure APNs connection
+const apnProvider = new apn.Provider({
+  token: {
+    key: "path/to/AuthKey_XXXXXXXXXX.p8", // APNs auth key
+    keyId: "XXXXXXXXXX", // Key ID
+    teamId: "XXXXXXXXXX" // Apple Developer Team ID
+  },
+  production: false // Set to true for production
 });
 
-const observer = await response.json();
-// Store observer.observer_id for management
+// Webhook endpoint that Django calls
+app.post('/notify', express.json(), async (req, res) => {
+  const { observer_id, room, message, timestamp } = req.body;
+  
+  // Extract device token from headers (sent during registration)
+  const deviceToken = req.headers['x-device-token'];
+  
+  if (!deviceToken) {
+    return res.status(400).json({ error: 'Missing device token' });
+  }
+  
+  // Create APNs notification
+  const notification = new apn.Notification({
+    alert: {
+      title: `Room ${room} Alert`,
+      body: message
+    },
+    topic: 'com.yourcompany.hospital-app', // Your app bundle ID
+    payload: {
+      observer_id,
+      room,
+      timestamp,
+      custom_data: 'any additional data'
+    }
+  });
+  
+  // Send to device
+  const result = await apnProvider.send(notification, deviceToken);
+  console.log('APNs result:', result);
+  
+  res.json({ success: true, result });
+});
 
-// Your push server receives notifications like:
-// POST https://your-push-server.com/notify
-// {
-//   "observer_id": "uuid",
-//   "notification_id": "notification-uuid", 
-//   "room": "DEMO-ICU-1",
-//   "message": "Timer expired...",
-//   "timestamp": "2025-09-28T19:05:00Z"
-// }
+app.listen(3000, () => {
+  console.log('Push server running on port 3000');
+});
 ```
+
+#### 2. **iPhone App Registration Code**
+
+In your iPhone app (Swift), register as an observer when the app starts:
+
+```swift
+import Foundation
+
+class HospitalNotificationManager {
+    private let baseURL = "http://your-django-server.com"
+    private let pushServerURL = "https://your-push-server.com"
+    
+    func registerForRoomNotifications(roomName: String, deviceToken: String, userId: String) async {
+        // Prepare registration data
+        let registrationData: [String: Any] = [
+            "name": "iPhone App - \(userId)",
+            "observer_type": "mobile_app",
+            "room_name": roomName,
+            "callback_url": "\(pushServerURL)/notify",
+            "callback_headers": [
+                "Authorization": "Bearer \(deviceToken)",
+                "X-Device-Token": deviceToken,
+                "X-Device-ID": UIDevice.current.identifierForVendor?.uuidString ?? "unknown"
+            ],
+            "timeout_seconds": 10,
+            "retry_count": 3,
+            "metadata": [
+                "device_id": UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
+                "user_id": userId,
+                "app_version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+                "platform": "iOS"
+            ]
+        ]
+        
+        // Register with Django server
+        guard let url = URL(string: "\(baseURL)/api/observers/register/") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: registrationData)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                let result = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let observerId = result?["observer_id"] as? String
+                
+                // Store observer ID for later management
+                UserDefaults.standard.set(observerId, forKey: "hospital_observer_id")
+                print("Successfully registered as observer: \(observerId ?? "unknown")")
+            }
+        } catch {
+            print("Registration failed: \(error)")
+        }
+    }
+    
+    func unregisterObserver() async {
+        guard let observerId = UserDefaults.standard.string(forKey: "hospital_observer_id"),
+              let url = URL(string: "\(baseURL)/api/observers/\(observerId)/") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                UserDefaults.standard.removeObject(forKey: "hospital_observer_id")
+                print("Successfully unregistered observer")
+            }
+        } catch {
+            print("Unregistration failed: \(error)")
+        }
+    }
+}
+```
+
+#### 3. **Handle Push Notifications in iOS**
+
+Configure your app delegate to handle incoming push notifications:
+
+```swift
+import UserNotifications
+import UIKit
+
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        
+        // Request notification permissions
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            if granted {
+                DispatchQueue.main.async {
+                    application.registerForRemoteNotifications()
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    // Handle successful APNs registration
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
+        print("APNs device token: \(token)")
+        
+        // Register with your Django server using this token
+        Task {
+            let notificationManager = HospitalNotificationManager()
+            await notificationManager.registerForRoomNotifications(
+                roomName: "DEMO-ICU-1", // Or get from user selection
+                deviceToken: token,
+                userId: getCurrentUserId()
+            )
+        }
+    }
+    
+    // Handle notification when app is in foreground
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        
+        let userInfo = notification.request.content.userInfo
+        if let room = userInfo["room"] as? String,
+           let observerId = userInfo["observer_id"] as? String {
+            print("Received room notification for \(room) from observer \(observerId)")
+        }
+        
+        // Show notification even when app is active
+        completionHandler([.alert, .badge, .sound])
+    }
+    
+    // Handle notification tap
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        
+        let userInfo = response.notification.request.content.userInfo
+        if let room = userInfo["room"] as? String {
+            // Navigate to room details screen
+            navigateToRoom(room)
+        }
+        
+        completionHandler()
+    }
+    
+    private func getCurrentUserId() -> String {
+        // Return current user ID from your auth system
+        return "dr_smith" // Example
+    }
+    
+    private func navigateToRoom(_ roomName: String) {
+        // Implement navigation to room details
+        print("Navigating to room: \(roomName)")
+    }
+}
+```
+
+#### 4. **Test Your Integration**
+
+Once your iPhone app and push server are set up:
+
+```bash
+# 1. Start your Django server
+cd webapp
+make demo
+
+# 2. Start your push notification server
+node push-server.js
+
+# 3. Run your iPhone app and register for notifications
+
+# 4. Test notification delivery
+make test-notification
+
+# 5. Check the observer dashboard
+open http://localhost:8000/dashboard/observers/
+```
+
+### Observer Pattern API Reference
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/observers/register/` | POST | Register iPhone app as observer |
+| `/api/observers/{id}/` | DELETE | Unregister when app is deleted |
+| `/api/observers/{id}/status/` | GET | Check delivery success/failure rates |
+| `/api/observers/{id}/update/` | PUT | Update callback URL or settings |
+| `/api/rooms/{room}/observers/` | GET | List all observers for a room |
+
+### Notification Payload Structure
+
+Your push server receives webhooks with this payload:
+
+```json
+{
+  "observer_id": "uuid-here",
+  "notification_id": "notification-uuid",
+  "room": "DEMO-ICU-1", 
+  "message": "Room: DEMO-ICU-1\nDoctor(s): Dr. Smith\nReason: Timer expired",
+  "timestamp": "2025-09-28T19:05:00Z",
+  "room_id": 1
+}
+```
+
+### Troubleshooting iPhone Integration
+
+**Common Issues:**
+
+1. **Push notifications not arriving**
+   - Verify APNs certificates and device tokens
+   - Check Django webhook delivery in observer dashboard
+   - Test webhook URL with `curl` manually
+
+2. **Observer registration failing**
+   - Ensure callback URL is accessible from Django server
+   - Verify JSON payload matches expected format
+   - Check Django server logs for errors
+
+3. **Webhook delivery failures**
+   - Monitor observer status: `GET /api/observers/{id}/status/`
+   - Check retry attempts and failure reasons
+   - Verify push server endpoint is responding correctly
+
+**Debug Commands:**
+
+```bash
+# Check observer status
+curl http://localhost:8000/api/observers/{observer-id}/status/
+
+# List all observers for room
+curl http://localhost:8000/api/rooms/DEMO-ICU-1/observers/
+
+# Manually trigger notification to test webhook
+python manage.py shell -c "from core.models import Room; Room.objects.get(name='DEMO-ICU-1').notify_observers()"
+```
+
+## 🔄 Integration Examples
 
 ### Mobile App Integration (Consumer Pattern)
 ```javascript
