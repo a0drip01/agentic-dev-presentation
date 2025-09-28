@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observer & Consumer Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .panel-header {
+            background-color: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+        }
+        .panel-content {
+            padding: 20px;
+        }
+        .observer-item, .consumer-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .observer-item:last-child, .consumer-item:last-child {
+            border-bottom: none;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-failed {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status-inactive {
+            background-color: #f1f3f4;
+            color: #5f6368;
+        }
+        .observer-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .observer-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+        .notification-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+        .notification-popup.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .notification-success {
+            background-color: #28a745;
+        }
+        .notification-error {
+            background-color: #dc3545;
+        }
+        .notification-info {
+            background-color: #17a2b8;
+        }
+        .refresh-indicator {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .room-stats {
+            margin-top: 15px;
+        }
+        .room-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏥 Hospital Notification System Dashboard</h1>
+        <p>Real-time Observer & Consumer Monitoring</p>
+        <span id="lastUpdate" class="refresh-indicator">Last updated: Loading...</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number" id="totalObservers">{{ total_observers }}</div>
+            <div class="stat-label">Total Observers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="activeObservers">{{ active_observers }}</div>
+            <div class="stat-label">Active Observers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="totalConsumers">{{ total_consumers }}</div>
+            <div class="stat-label">Active Consumers</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="roomCount">{{ observer_stats|length }}</div>
+            <div class="stat-label">Monitored Rooms</div>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <div class="panel">
+            <div class="panel-header">
+                🔔 Observer Subscriptions (Push Notifications)
+                <span id="refreshIcon1" class="refresh-indicator">🔄</span>
+            </div>
+            <div class="panel-content" id="observersList">
+                {% for observer in recent_observers %}
+                <div class="observer-item" data-observer-id="{{ observer.id }}">
+                    <div class="observer-name">{{ observer.name }}</div>
+                    <div class="observer-details">
+                        <span class="status-badge status-{{ observer.status }}">{{ observer.status }}</span>
+                        Room: {{ observer.room.name }} | 
+                        Type: {{ observer.observer_type }} |
+                        Failures: {{ observer.failure_count }}
+                        {% if observer.last_notified_at %}
+                        <br>Last notified: {{ observer.last_notified_at|timesince }} ago
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <p>No observers registered yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                📱 Consumer Subscriptions (Polling API)
+                <span id="refreshIcon2" class="refresh-indicator">🔄</span>
+            </div>
+            <div class="panel-content" id="consumersList">
+                {% for consumer in recent_consumers %}
+                <div class="consumer-item" data-consumer-id="{{ consumer.id }}">
+                    <div class="observer-name">{{ consumer.name }}</div>
+                    <div class="observer-details">
+                        <span class="status-badge status-{{ consumer.status }}">{{ consumer.status }}</span>
+                        Type: {{ consumer.consumer_type }} |
+                        Subscriptions: {{ consumer.subscriptions.count }}
+                        {% if consumer.last_seen_at %}
+                        <br>Last seen: {{ consumer.last_seen_at|timesince }} ago
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <p>No consumers registered yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Room statistics -->
+    <div class="panel" style="margin-top: 20px;">
+        <div class="panel-header">📊 Observer Statistics by Room</div>
+        <div class="panel-content">
+            <div class="room-stats" id="roomStats">
+                {% for room_name, stats in observer_stats.items %}
+                <div class="room-stat">
+                    <strong>{{ room_name }}</strong>
+                    <span>{{ stats.active }}/{{ stats.total }} active ({{ stats.failed }} failed)</span>
+                </div>
+                {% empty %}
+                <p>No room statistics available.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification popup -->
+    <div id="notificationPopup" class="notification-popup"></div>
+
+    <script>
+        let previousData = null;
+
+        function showNotification(message, type = 'info') {
+            const popup = document.getElementById('notificationPopup');
+            popup.textContent = message;
+            popup.className = `notification-popup notification-${type}`;
+            popup.classList.add('show');
+            
+            setTimeout(() => {
+                popup.classList.remove('show');
+            }, 4000);
+        }
+
+        function updateDashboard() {
+            const icon1 = document.getElementById('refreshIcon1');
+            const icon2 = document.getElementById('refreshIcon2');
+            icon1.classList.add('loading');
+            icon2.classList.add('loading');
+
+            fetch('/dashboard/observer-status-api/')
+                .then(response => response.json())
+                .then(data => {
+                    // Check for new observers or consumers
+                    if (previousData) {
+                        const newObservers = data.observers.filter(obs => 
+                            !previousData.observers.find(prev => prev.id === obs.id)
+                        );
+                        const newConsumers = data.consumers.filter(cons => 
+                            !previousData.consumers.find(prev => prev.id === cons.id)
+                        );
+
+                        newObservers.forEach(obs => {
+                            showNotification(`🔔 New observer registered: ${obs.name} for ${obs.room}`, 'success');
+                        });
+
+                        newConsumers.forEach(cons => {
+                            showNotification(`📱 New consumer registered: ${cons.name}`, 'success');
+                        });
+
+                        // Check for failed observers
+                        data.observers.forEach(obs => {
+                            const prevObs = previousData.observers.find(prev => prev.id === obs.id);
+                            if (prevObs && prevObs.status === 'active' && obs.status === 'failed') {
+                                showNotification(`❌ Observer failed: ${obs.name}`, 'error');
+                            }
+                        });
+                    }
+
+                    previousData = data;
+
+                    // Update stats
+                    document.getElementById('totalObservers').textContent = data.observers.length;
+                    document.getElementById('activeObservers').textContent = 
+                        data.observers.filter(obs => obs.status === 'active').length;
+                    document.getElementById('totalConsumers').textContent = data.consumers.length;
+
+                    // Update last update time
+                    document.getElementById('lastUpdate').textContent = 
+                        `Last updated: ${new Date().toLocaleTimeString()}`;
+                })
+                .catch(error => {
+                    console.error('Error updating dashboard:', error);
+                    showNotification('Error updating dashboard', 'error');
+                })
+                .finally(() => {
+                    icon1.classList.remove('loading');
+                    icon2.classList.remove('loading');
+                });
+        }
+
+        // Update dashboard every 10 seconds
+        setInterval(updateDashboard, 10000);
+        
+        // Initial update
+        updateDashboard();
+
+        // Show welcome message
+        setTimeout(() => {
+            showNotification('🚀 Dashboard loaded! Updates every 10 seconds', 'info');
+        }, 1000);
+    </script>
+</body>
+</html>

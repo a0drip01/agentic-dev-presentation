@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, Room, Notification, NotificationRead, WebhookSubscription,
-    Consumer, ConsumerSubscription, ConsumerNotificationAck, ConsumerNotificationPending
+    Consumer, ConsumerSubscription, ConsumerNotificationAck, ConsumerNotificationPending,
+    ObserverSubscription
 )
 
 @admin.register(User)
@@ -95,3 +96,34 @@ class ConsumerNotificationPendingAdmin(admin.ModelAdmin):
 
 # Add inline subscriptions to Consumer admin
 ConsumerAdmin.inlines = [ConsumerSubscriptionInline]
+
+
+@admin.register(ObserverSubscription)
+class ObserverSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'observer_type', 'room', 'status', 'created_at', 'failure_count', 'last_success_at')
+    list_filter = ('observer_type', 'status', 'room', 'created_at')
+    search_fields = ('name', 'id', 'room__name', 'callback_url')
+    readonly_fields = ('id', 'created_at', 'last_notified_at', 'last_success_at', 'failure_count')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('id', 'name', 'observer_type', 'room', 'status')
+        }),
+        ('Callback Configuration', {
+            'fields': ('callback_url', 'callback_method', 'callback_headers', 'timeout_seconds', 'retry_count')
+        }),
+        ('Reliability Settings', {
+            'fields': ('max_failures',)
+        }),
+        ('Status & Statistics', {
+            'fields': ('created_at', 'last_notified_at', 'last_success_at', 'failure_count'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('metadata',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('room')

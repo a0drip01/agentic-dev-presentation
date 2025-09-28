@@ -161,7 +161,7 @@
         event.preventDefault();
         const form = event.target;
         const seconds = form.seconds.value;
-        fetch(`/set-timer/${roomId}/`, {
+        fetch(`/dashboard/set-timer/${roomId}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -169,9 +169,20 @@
             },
             body: JSON.stringify({seconds: seconds})
         })
-        .then(res => res.json())
-        .then(data => { if(data.status === 'ok') window.location.reload(); })
-        .catch(err => alert('Failed to set timer: ' + err));
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
+        .then(data => { 
+            if(data.status === 'ok') {
+                window.location.reload(); 
+            } else {
+                alert('Failed to set timer: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Failed to set timer: ' + err.message));
         return false;
     }
     function getCookie(name) {
