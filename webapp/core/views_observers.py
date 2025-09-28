@@ -103,6 +103,7 @@ def unregister_observer(request, observer_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
 @require_GET
 def get_observer_status(request, observer_id):
     """
@@ -117,7 +118,17 @@ def get_observer_status(request, observer_id):
         except ValueError:
             return JsonResponse({'error': 'Invalid observer ID format'}, status=400)
         
-        observer = get_object_or_404(ObserverSubscription, id=observer_id)
+        # Wrap the database query in a try-catch for UUID threading issues
+        try:
+            observer = get_object_or_404(ObserverSubscription, id=observer_id)
+        except AttributeError as e:
+            if "'UUID' object has no attribute 'replace'" in str(e):
+                # Retry with a fresh database connection
+                from django.db import connection
+                connection.close()
+                observer = get_object_or_404(ObserverSubscription, id=observer_id)
+            else:
+                raise e
         
         response_data = {
             'observer_id': str(observer.id),
@@ -138,6 +149,37 @@ def get_observer_status(request, observer_id):
         return JsonResponse(response_data, status=200)
         
     except Exception as e:
+        error_msg = str(e)
+        if "'UUID' object has no attribute 'replace'" in error_msg:
+            # Handle the UUID threading error specifically
+            try:
+                # Force a new database connection and retry
+                from django.db import connections
+                for conn in connections.all():
+                    conn.close()
+                observer = ObserverSubscription.objects.get(id=observer_id)
+                
+                response_data = {
+                    'observer_id': str(observer.id),
+                    'name': observer.name,
+                    'observer_type': observer.observer_type,
+                    'room': observer.room.name,
+                    'status': observer.status,
+                    'created_at': observer.created_at.isoformat(),
+                    'last_notified_at': observer.last_notified_at.isoformat() if observer.last_notified_at else None,
+                    'last_success_at': observer.last_success_at.isoformat() if observer.last_success_at else None,
+                    'failure_count': observer.failure_count,
+                    'max_failures': observer.max_failures,
+                    'is_active': observer.is_active(),
+                    'callback_url': observer.callback_url,
+                    'metadata': observer.metadata
+                }
+                
+                return JsonResponse(response_data, status=200)
+                
+            except Exception as retry_error:
+                return JsonResponse({'error': f'Database connection issue: {str(retry_error)}'}, status=500)
+        
         return JsonResponse({'error': str(e)}, status=500)
 
 

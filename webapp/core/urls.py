@@ -3,7 +3,7 @@ URL configuration for consumer API endpoints and observer pattern API.
 Implements the Kafka-like notification bus REST API and database-persisted observer pattern.
 """
 from django.urls import path
-from . import views, views_observers
+from . import views, views_observers, views_test
 
 # Consumer management endpoints
 urlpatterns = [
@@ -29,4 +29,8 @@ urlpatterns = [
     path('api/observers/<uuid:observer_id>/status/', views_observers.get_observer_status, name='get_observer_status'),
     path('api/observers/<uuid:observer_id>/update/', views_observers.update_observer, name='update_observer'),
     path('api/rooms/<str:room_name>/observers/', views_observers.list_room_observers, name='list_room_observers'),
+    
+    # Test notification endpoints
+    path('api/rooms/<str:room_name>/test-notification/', views_test.create_test_notification, name='create_test_notification'),
+    path('api/rooms/<str:room_name>/timer-notification/', views_test.trigger_timer_notification, name='trigger_timer_notification'),
 ]

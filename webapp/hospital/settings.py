@@ -25,7 +25,17 @@ SECRET_KEY = 'django-insecure-c#b^&fdl$^ipr49cz-m4lr!8%vhfmp3voatg*4#@p098-%(v*4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1', 
+    'testserver',
+    '*.ngrok.io',
+    '*.ngrok-free.app',
+    '*.ngrok-free.de',
+    '*.ngrok-free.dev',
+    'randa-personable-imputatively.ngrok-free.de',
+    'randa-personable-imputatively.ngrok-free.dev',
+]
 
 
 # Application definition
@@ -130,6 +140,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS configuration for mobile apps and external services
 # Allow all origins during development - restrict in production
 CORS_ALLOW_ALL_ORIGINS = True
+
+# CSRF configuration for ngrok compatibility
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok.io',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok-free.de',
+    'https://*.ngrok-free.dev',
+    'https://randa-personable-imputatively.ngrok-free.de',
+    'https://randa-personable-imputatively.ngrok-free.dev',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+# Security settings for ngrok proxy
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Alternative: Specify allowed origins in production
 # CORS_ALLOWED_ORIGINS = [
