@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #333;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 6px;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .stat-card.fully-acked { background: #d5f4e6; }
+        .stat-card.pending { background: #fff3cd; }
+        .stat-card.expired { background: #f8d7da; }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.7;
+        }
+        
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .filters h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: end;
+            margin-bottom: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        .notifications-table {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #34495e;
+            color: white;
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .notification-message {
+            font-weight: 500;
+            max-width: 300px;
+            word-wrap: break-word;
+        }
+        
+        .notification-tags {
+            font-size: 11px;
+            background: #ecf0f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 2px;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-fully-acked {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #f39c12;
+        }
+        
+        .status-expired {
+            background: #f8d7da;
+            color: #e74c3c;
+        }
+        
+        .status-no-consumers {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .status-partial-ack {
+            background: #d1ecf1;
+            color: #17a2b8;
+        }
+        
+        .ack-details {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .ack-consumer {
+            background: #e8f5e8;
+            color: #2d7c2d;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 1px;
+            display: inline-block;
+        }
+        
+        .pending-consumer {
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 1px;
+            display: inline-block;
+        }
+        
+        .timestamp {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .no-notifications {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+            
+            table {
+                font-size: 12px;
+            }
+            
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔔 Notifications Dashboard</h1>
+        <p>Monitor all notifications and their acknowledgment status across consumers</p>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.total }}</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card fully-acked">
+                <div class="stat-number">{{ stats.fully_acked }}</div>
+                <div class="stat-label">Fully Acked</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="stat-number">{{ stats.pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card expired">
+                <div class="stat-number">{{ stats.expired }}</div>
+                <div class="stat-label">Expired</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="filters">
+        <h3>🔍 Filters</h3>
+        <form method="get">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="room">Room</label>
+                    <select name="room" id="room">
+                        <option value="">All Rooms</option>
+                        {% for room in rooms %}
+                            <option value="{{ room.name }}" 
+                                    {% if filters.room == room.name %}selected{% endif %}>
+                                {{ room.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="status">Status</label>
+                    <select name="status" id="status">
+                        <option value="">All Status</option>
+                        <option value="fully_acked" {% if filters.status == "fully_acked" %}selected{% endif %}>Fully Acknowledged</option>
+                        <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
+                        <option value="expired" {% if filters.status == "expired" %}selected{% endif %}>Expired</option>
+                        <option value="partial_ack" {% if filters.status == "partial_ack" %}selected{% endif %}>Partially Acknowledged</option>
+                        <option value="no_consumers" {% if filters.status == "no_consumers" %}selected{% endif %}>No Consumers</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="consumer_type">Consumer Type</label>
+                    <select name="consumer_type" id="consumer_type">
+                        <option value="">All Types</option>
+                        {% for type_code, type_name in consumer_types %}
+                            <option value="{{ type_code }}" 
+                                    {% if filters.consumer_type == type_code %}selected{% endif %}>
+                                {{ type_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" 
+                           placeholder="Search message or tags..."
+                           value="{{ filters.search }}">
+                </div>
+            </div>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="date_from">From Date</label>
+                    <input type="date" name="date_from" id="date_from" 
+                           value="{{ filters.date_from }}">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="date_to">To Date</label>
+                    <input type="date" name="date_to" id="date_to" 
+                           value="{{ filters.date_to }}">
+                </div>
+                
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="?" class="btn btn-secondary">Clear</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="notifications-table">
+        {% if notification_data %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Created</th>
+                        <th>Message</th>
+                        <th>Tags</th>
+                        <th>Status</th>
+                        <th>Acknowledgments</th>
+                        <th>Pending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in notification_data %}
+                        <tr>
+                            <td>
+                                <div class="timestamp">
+                                    {{ data.notification.timestamp|date:"M j, Y" }}<br>
+                                    {{ data.notification.timestamp|time:"H:i:s" }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="notification-message">
+                                    {{ data.notification.message }}
+                                </div>
+                                <div class="timestamp">
+                                    Room: {{ data.notification.room.name }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="notification-tags">room: {{ data.notification.room.name }}</span>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{{ data.status }}">
+                                    {% if data.status == "fully_acked" %}✅ Fully Acked
+                                    {% elif data.status == "pending" %}⏳ Pending
+                                    {% elif data.status == "expired" %}❌ Expired
+                                    {% elif data.status == "partial_ack" %}🔄 Partial
+                                    {% elif data.status == "no_consumers" %}👥 No Consumers
+                                    {% endif %}
+                                </span>
+                                {% if data.is_expired %}
+                                    <div class="timestamp">⚠️ Expired</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="ack-details">
+                                    {{ data.ack_count }}/{{ data.total_consumers }} consumers
+                                </div>
+                                {% for ack in data.acknowledgments %}
+                                    <span class="ack-consumer">
+                                        {{ ack.consumer.name }}
+                                    </span>
+                                {% endfor %}
+                                {% if data.acknowledgments %}
+                                    <div class="timestamp">
+                                        Latest: {{ data.acknowledgments.0.acknowledged_at|timesince }} ago
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for pending in data.pending_consumers %}
+                                    <span class="pending-consumer">
+                                        {{ pending.consumer.name }}
+                                    </span>
+                                {% endfor %}
+                                {% if data.pending_consumers %}
+                                    <div class="timestamp">
+                                        Waiting {{ data.pending_consumers.0.created_at|timesince }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="no-notifications">
+                <h3>📭 No notifications found</h3>
+                <p>Try adjusting your filters or create some test notifications.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Auto-refresh every 30 seconds
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+        
+        // Quick filter shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'f':
+                        e.preventDefault();
+                        document.getElementById('search').focus();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        location.reload();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>

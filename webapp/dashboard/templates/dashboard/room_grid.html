@@ -7,13 +7,46 @@
         body {
             font-family: Arial, sans-serif;
             background: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .nav {
+            background: #2c3e50;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav h1 {
+            color: white;
+            margin: 0;
+            display: inline-block;
+        }
+        .nav-links {
+            float: right;
+            margin-top: 5px;
+        }
+        .nav-links a {
+            color: #ecf0f1;
+            text-decoration: none;
+            margin-left: 2rem;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .nav-links a.active {
+            background: #3498db;
+            color: white;
+        }
+        .container {
+            padding: 2rem;
         }
         .grid {
             display: flex;
             flex-wrap: wrap;
             gap: 2rem;
             justify-content: center;
-            margin-top: 2rem;
         }
         .room {
             position: relative;
@@ -95,8 +128,18 @@
     </style>
 </head>
 <body>
-    <h1 style="text-align:center;">Room Dashboard</h1>
-    <div class="grid">
+    <nav class="nav">
+        <h1>🏥 Hospital Dashboard</h1>
+        <div class="nav-links">
+            <a href="{% url 'room_grid' %}" class="active">Rooms</a>
+            <a href="{% url 'observer_dashboard' %}">Observers</a>
+            <a href="{% url 'notifications_dashboard' %}">Notifications</a>
+        </div>
+        <div style="clear: both;"></div>
+    </nav>
+    
+    <div class="container">
+        <div class="grid">
         {% for item in room_data %}
         <div class="room">
             {% if item.timer %}
@@ -161,7 +204,7 @@
         event.preventDefault();
         const form = event.target;
         const seconds = form.seconds.value;
-        fetch(`/set-timer/${roomId}/`, {
+        fetch(`/dashboard/set-timer/${roomId}/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -169,9 +212,20 @@
             },
             body: JSON.stringify({seconds: seconds})
         })
-        .then(res => res.json())
-        .then(data => { if(data.status === 'ok') window.location.reload(); })
-        .catch(err => alert('Failed to set timer: ' + err));
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+        })
+        .then(data => { 
+            if(data.status === 'ok') {
+                window.location.reload(); 
+            } else {
+                alert('Failed to set timer: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Failed to set timer: ' + err.message));
         return false;
     }
     function getCookie(name) {
@@ -223,5 +277,6 @@
     }
     document.addEventListener('DOMContentLoaded', updateTimers);
     </script>
+    </div> <!-- Close container div -->
 </body>
 </html>
